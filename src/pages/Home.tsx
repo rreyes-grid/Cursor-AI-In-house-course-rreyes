@@ -1,7 +1,11 @@
 import { Link } from 'react-router'
 import { demos } from '../demos/registry'
 
-const COMPLETE_INTERFACE_PATHS = ['/demos/complete-interface', '/demos/social-media']
+const COMPLETE_INTERFACE_PATHS = [
+  '/demos/complete-interface',
+  '/demos/social-media',
+  '/demos/customer-support',
+]
 
 export function Home() {
   const completeInterfaceDemos = demos.filter((d) => COMPLETE_INTERFACE_PATHS.includes(d.path))

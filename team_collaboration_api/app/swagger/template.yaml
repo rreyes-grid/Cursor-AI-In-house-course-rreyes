@@ -1,0 +1,351 @@
+swagger: "2.0"
+info:
+  title: Team Collaboration API
+  description: |
+    REST API for team collaboration: JWT auth, projects, tasks, teams, notifications.
+    Real-time updates via Socket.IO (connect then emit `authenticate` with JWT).
+  version: "1.0.0"
+# Omit `host` so Swagger UI sends requests to the same host you use in the browser
+# (localhost vs 127.0.0.1 are different origins; a fixed host caused NetworkError / CORS).
+basePath: /
+schemes:
+  - http
+consumes:
+  - application/json
+produces:
+  - application/json
+securityDefinitions:
+  Bearer:
+    type: apiKey
+    name: Authorization
+    in: header
+    description: "JWT: Bearer <token>"
+paths:
+  /health:
+    get:
+      tags: [Health]
+      summary: Health check
+      responses:
+        200:
+          description: OK
+  /api/v1/auth/register:
+    post:
+      tags: [Auth]
+      summary: Register user
+      parameters:
+        - in: body
+          name: body
+          schema:
+            type: object
+            required: [email, password, name, username]
+            properties:
+              email: { type: string }
+              password: { type: string }
+              name: { type: string }
+              username: { type: string }
+              avatar_url: { type: string }
+      responses:
+        201:
+          description: Created with access_token
+  /api/v1/auth/login:
+    post:
+      tags: [Auth]
+      summary: Login
+      parameters:
+        - in: body
+          name: body
+          schema:
+            type: object
+            required: [email, password]
+            properties:
+              email: { type: string }
+              password: { type: string }
+      responses:
+        200:
+          description: access_token
+  /api/v1/auth/me:
+    get:
+      tags: [Auth]
+      summary: Current user
+      security:
+        - Bearer: []
+      responses:
+        200:
+          description: User object
+  /api/v1/projects:
+    get:
+      tags: [Projects]
+      summary: List projects for current user
+      security:
+        - Bearer: []
+      responses:
+        200:
+          description: List of projects
+    post:
+      tags: [Projects]
+      summary: Create project
+      security:
+        - Bearer: []
+      parameters:
+        - in: body
+          name: body
+          schema:
+            type: object
+            required: [name]
+            properties:
+              name: { type: string }
+              description: { type: string }
+              due_date: { type: string, format: date }
+              status: { type: string, enum: [active, archived, on_hold] }
+      responses:
+        201:
+          description: Project created
+  /api/v1/projects/{project_id}:
+    get:
+      tags: [Projects]
+      summary: Get project
+      security:
+        - Bearer: []
+      parameters:
+        - name: project_id
+          in: path
+          required: true
+          type: integer
+      responses:
+        200:
+          description: Project
+    patch:
+      tags: [Projects]
+      summary: Update project (owner only)
+      security:
+        - Bearer: []
+      parameters:
+        - name: project_id
+          in: path
+          required: true
+          type: integer
+        - in: body
+          name: body
+          schema:
+            type: object
+            properties:
+              name: { type: string }
+              description: { type: string }
+              due_date: { type: string, format: date }
+              status: { type: string, enum: [active, archived, on_hold] }
+              progress_trend: { type: integer }
+      responses:
+        200:
+          description: Updated project
+    delete:
+      tags: [Projects]
+      summary: Delete project (owner only)
+      security:
+        - Bearer: []
+      parameters:
+        - name: project_id
+          in: path
+          required: true
+          type: integer
+      responses:
+        204:
+          description: Deleted
+  /api/v1/projects/{project_id}/members:
+    post:
+      tags: [Projects]
+      summary: Add project member (owner only)
+      description: Adds a user to the project and notifies them. Optional role defaults to member.
+      security:
+        - Bearer: []
+      parameters:
+        - name: project_id
+          in: path
+          required: true
+          type: integer
+        - in: body
+          name: body
+          required: true
+          schema:
+            type: object
+            required: [user_id]
+            properties:
+              user_id: { type: integer }
+              role: { type: string, default: member }
+      responses:
+        201:
+          description: Member added
+        400:
+          description: user_id required
+        403:
+          description: Only owner can add members
+        404:
+          description: User or project not found
+        409:
+          description: User already a member
+  /api/v1/projects/{project_id}/members/{user_id}:
+    delete:
+      tags: [Projects]
+      summary: Remove project member
+      description: Project owner may remove anyone; a member may remove themselves.
+      security:
+        - Bearer: []
+      parameters:
+        - name: project_id
+          in: path
+          required: true
+          type: integer
+        - name: user_id
+          in: path
+          required: true
+          type: integer
+      responses:
+        204:
+          description: Removed (or no-op if not a member)
+        403:
+          description: Forbidden
+  /api/v1/projects/{project_id}/tasks:
+    get:
+      tags: [Tasks]
+      summary: List tasks in project
+      security:
+        - Bearer: []
+      parameters:
+        - name: project_id
+          in: path
+          required: true
+          type: integer
+      responses:
+        200:
+          description: Tasks list
+    post:
+      tags: [Tasks]
+      summary: Create task
+      security:
+        - Bearer: []
+      parameters:
+        - name: project_id
+          in: path
+          required: true
+          type: integer
+        - in: body
+          name: body
+          required: true
+          schema:
+            type: object
+            required: [title]
+            properties:
+              title: { type: string }
+              description: { type: string }
+              status: { type: string, enum: [todo, in_progress, in_review, done] }
+              priority: { type: string, enum: [low, medium, high, urgent] }
+              due_date: { type: string, format: date }
+              assignee_id: { type: integer }
+      responses:
+        201:
+          description: Task created
+  /api/v1/tasks/{task_id}:
+    get:
+      tags: [Tasks]
+      summary: Get task
+      security:
+        - Bearer: []
+      parameters:
+        - name: task_id
+          in: path
+          required: true
+          type: integer
+      responses:
+        200:
+          description: Task
+    patch:
+      tags: [Tasks]
+      summary: Update task
+      security:
+        - Bearer: []
+      parameters:
+        - name: task_id
+          in: path
+          required: true
+          type: integer
+        - in: body
+          name: body
+          schema:
+            type: object
+            properties:
+              title: { type: string }
+              description: { type: string }
+              status: { type: string, enum: [todo, in_progress, in_review, done] }
+              priority: { type: string, enum: [low, medium, high, urgent] }
+              due_date: { type: string, format: date }
+              assignee_id: { type: integer }
+      responses:
+        200:
+          description: Task updated
+    delete:
+      tags: [Tasks]
+      summary: Delete task
+      security:
+        - Bearer: []
+      parameters:
+        - name: task_id
+          in: path
+          required: true
+          type: integer
+      responses:
+        204:
+          description: Deleted
+  /api/v1/teams:
+    get:
+      tags: [Teams]
+      summary: List teams
+      security:
+        - Bearer: []
+      responses:
+        200:
+          description: Teams
+    post:
+      tags: [Teams]
+      summary: Create team
+      security:
+        - Bearer: []
+      parameters:
+        - in: body
+          name: body
+          required: true
+          schema:
+            type: object
+            required: [name, slug]
+            properties:
+              name: { type: string }
+              slug: { type: string }
+              description: { type: string }
+      responses:
+        201:
+          description: Team created
+  /api/v1/notifications:
+    get:
+      tags: [Notifications]
+      summary: List notifications
+      security:
+        - Bearer: []
+      parameters:
+        - name: unread_only
+          in: query
+          type: boolean
+      responses:
+        200:
+          description: Notifications
+  /api/v1/collaboration/projects/{project_id}/activity:
+    get:
+      tags: [Collaboration]
+      summary: Project activity feed
+      security:
+        - Bearer: []
+      parameters:
+        - name: project_id
+          in: path
+          required: true
+          type: integer
+      responses:
+        200:
+          description: Activity items

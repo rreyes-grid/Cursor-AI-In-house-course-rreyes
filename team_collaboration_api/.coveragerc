@@ -1,0 +1,14 @@
+[run]
+source = app
+omit =
+    app/socket_events.py
+branch = True
+
+[report]
+exclude_lines =
+    pragma: no cover
+    if __name__ == .__main__.:
+    if TYPE_CHECKING:
+
+fail_under = 90
+show_missing = True

@@ -6,6 +6,7 @@ import { SettingsDemo } from './SettingsDemo'
 import { AnalyticsDemo } from './AnalyticsDemo'
 import { CompleteInterfaceDemo } from './CompleteInterfaceDemo'
 import { SocialMediaDemo } from './SocialMediaDemo'
+import { CustomerSupportDemo } from './CustomerSupportDemo'
 
 registerDemo({
   name: 'UserProfile',
@@ -54,4 +55,12 @@ registerDemo({
   path: '/demos/social-media',
   description: 'Social media feed with post cards, user info, images, like/comment/share, comment threads, post creation, and infinite scroll.',
   component: SocialMediaDemo,
+})
+
+registerDemo({
+  name: 'Customer Support',
+  path: '/demos/customer-support',
+  description:
+    'End-to-end support desk: ticket creation, assignment, status and priority with audit trail, SLA fields, threaded comments (public/internal), agent queue, and admin metrics (Flask API on port 5002).',
+  component: CustomerSupportDemo,
 })

@@ -1,0 +1,25 @@
+swagger: "2.0"
+info:
+  title: Blogging Platform API
+  version: 1.0.0
+  description: |
+    REST API for a blogging platform with JWT auth, posts, comments, categories, and search.
+    Interactive docs are generated from route docstrings; use **Authorize** with `Bearer <token>`.
+securityDefinitions:
+  Bearer:
+    type: apiKey
+    name: Authorization
+    in: header
+    description: "JWT access token: Bearer <token>"
+tags:
+  - name: Auth
+    description: Register and login
+  - name: Posts
+    description: Post CRUD (list is public; create/update/delete require JWT)
+  - name: Comments
+    description: Comments on posts
+  - name: Categories
+    description: Category list and management
+  - name: Search
+    description: Search posts by keyword
+paths: {}

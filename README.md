@@ -90,6 +90,9 @@ npx playwright test --debug -g "cycles a task from To Do"
 ## Project Structure
 
 ```
+team_collaboration_api/  # Flask API on port 5001 by default (team collaboration): JWT, projects, tasks, Socket.IO, Swagger
+customer_support_api/    # Flask API on port 5002 (customer support tickets; optional)
+blogging_api/            # Flask API on port 5003 (blogging: JWT, posts, comments, categories, search, Swagger)
 src/
 ├── assets/            # Static assets (images, SVGs)
 ├── components/
@@ -110,6 +113,12 @@ tests/
 ├── dashboard-darkmode-edge.spec.ts # Dark mode & edge case tests
 └── dashboard-responsive.spec.ts    # Responsive design tests
 ```
+
+## Backend (Team Collaboration API)
+
+A Flask API lives under **`team_collaboration_api/`**: JWT auth, projects, tasks, teams, notifications, Socket.IO real-time events, and Swagger UI (default **http://127.0.0.1:5001**; override with `PORT`). See [team_collaboration_api/README.md](team_collaboration_api/README.md) for setup and endpoints. The **customer support** API is in **`customer_support_api/`** (default port **5002**); see [customer_support_api/README.md](customer_support_api/README.md). The **blogging platform** API is in **`blogging_api/`** (default port **5003**); see [blogging_api/README.md](blogging_api/README.md).
+
+To point the Vite app at that API when you wire up requests, copy [`.env.example`](.env.example) to `.env` and adjust **`VITE_API_URL`** if your API runs on a different host or port.
 
 ## Tech Stack
 
