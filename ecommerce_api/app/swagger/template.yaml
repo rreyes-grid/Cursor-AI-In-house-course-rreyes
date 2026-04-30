@@ -1,0 +1,30 @@
+swagger: "2.0"
+info:
+  title: E-commerce API
+  version: 1.0.0
+  description: |
+    REST API for storefront demo: JWT authentication, catalog, cart, discounts, mock PSP checkout,
+    orders, and email-notification audit rows. Paths are inferred from Flask route YAML docstrings;
+    click **Authorize** and use header `Bearer <access_token>` from login or register.
+securityDefinitions:
+  Bearer:
+    type: apiKey
+    name: Authorization
+    in: header
+    description: "JWT access token: Bearer <token>"
+tags:
+  - name: System
+    description: Health and metadata
+  - name: Auth
+    description: Register, login, and current user session
+  - name: Users
+    description: Authenticated shopper profile updates
+  - name: Products
+    description: Catalog (public)
+  - name: Cart
+    description: Authenticated basket and discount codes
+  - name: Orders
+    description: Order history and checkout
+  - name: Notifications
+    description: Persisted transactional email payloads (audit trail)
+paths: {}

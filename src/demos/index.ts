@@ -7,6 +7,7 @@ import { AnalyticsDemo } from './AnalyticsDemo'
 import { CompleteInterfaceDemo } from './CompleteInterfaceDemo'
 import { SocialMediaDemo } from './SocialMediaDemo'
 import { CustomerSupportDemo } from './CustomerSupportDemo'
+import { EcommerceDemo } from './EcommerceDemo'
 
 registerDemo({
   name: 'UserProfile',
@@ -63,4 +64,12 @@ registerDemo({
   description:
     'End-to-end support desk: ticket creation, assignment, status and priority with audit trail, SLA fields, threaded comments (public/internal), agent queue, and admin metrics (Flask API on port 5002).',
   component: CustomerSupportDemo,
+})
+
+registerDemo({
+  name: 'Ecommerce Storefront',
+  path: '/demos/ecommerce',
+  description:
+    'Shopping flow: JWT auth, product catalog, cart and discount codes, mock payment tokens (tok_charge_success / tok_charge_declined), order confirmation, and email-notification audit trail (Flask API on port 5004).',
+  component: EcommerceDemo,
 })

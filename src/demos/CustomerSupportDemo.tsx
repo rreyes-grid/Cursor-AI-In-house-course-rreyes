@@ -11,6 +11,8 @@ import {
   type SupportTicket,
   type SupportUser,
 } from '../lib/supportApi'
+
+type SupportAdminDashboardPayload = Awaited<ReturnType<typeof supportAdmin.dashboard>>['dashboard']
 import { Button } from '../components/ui/Button'
 import { TextInput } from '../components/ui/TextInput'
 
@@ -164,7 +166,7 @@ export function CustomerSupportDemo() {
   const [newPriorityPick, setNewPriorityPick] = useState<string>('urgent')
   const [agents, setAgents] = useState<SupportUser[]>([])
   const [assignAgentId, setAssignAgentId] = useState<string>('')
-  const [dashboard, setDashboard] = useState<Record<string, unknown> | null>(null)
+  const [dashboard, setDashboard] = useState<SupportAdminDashboardPayload | null>(null)
   const [notifications, setNotifications] = useState<Array<{ id: number; message: string; read: boolean }>>([])
   const [view, setView] = useState<'overview' | 'tickets' | 'new' | 'admin'>('overview')
 
@@ -388,7 +390,7 @@ export function CustomerSupportDemo() {
     setBusy(true)
     try {
       const r = await supportAdmin.dashboard(token)
-      setDashboard(r.dashboard as unknown as Record<string, unknown>)
+      setDashboard(r.dashboard)
     } catch (err) {
       setError(err instanceof SupportApiError ? err.message : 'Failed to load dashboard')
     } finally {

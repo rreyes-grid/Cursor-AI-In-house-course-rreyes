@@ -5,6 +5,7 @@ const COMPLETE_INTERFACE_PATHS = [
   '/demos/complete-interface',
   '/demos/social-media',
   '/demos/customer-support',
+  '/demos/ecommerce',
 ]
 
 export function Home() {

@@ -4,13 +4,22 @@ A React application built with TypeScript, Vite, and Tailwind CSS.
 
 ## Prerequisites
 
-- [Node.js](https://nodejs.org/) v22 or later (an `.nvmrc` file is included)
+- [Node.js](https://nodejs.org/) **`^20.19.0` or `>=22.12.0`** — required by Vite 7 (see `package.json` **`engines`**). Using **Node 22** is easiest; an **`.nvmrc`** pins `22` for [`nvm`](https://github.com/nvm-sh/nvm) users.
 
-If you use [nvm](https://github.com/nvm-sh/nvm), run:
+Older runtimes fail `npm run build` because TypeScript/Vite ship modern syntax (e.g. `??`) that breaks on legacy Node shells; `npm run build` prints a clearer error after `scripts/require-node.mjs`.
+
+If you use nvm, run:
 
 ```bash
 nvm use
 ```
+
+### Still seeing Node / build errors?
+
+1. **`scripts/require-node.mjs` prints an old Node** — Run `which node`, `which npm`, and `node -v` in the **same** shell where you invoke `npm run build`. Both binaries should normally live under `~/.nvm/versions/node/<version>/bin/` once `nvm use` succeeds.  
+   Global installs under `/usr/local/bin` sometimes win unless you run `hash -r` after switching or set `nvm alias default 22`.
+2. **`.npmrc`** in this repo sets **`scripts-prepend-node-path=true`**, which tells npm to prefer the Node that launched `npm` when running lifecycle scripts—this avoids many PATH collisions on macOS.
+3. **`tsc`/TS2322/`unknown` failures** — With a supported Node, `npm run build` runs `tsc -b` before Vite; if it still fails, copy the **`tsc` error lines**—those are genuine type issues in the codebase (recent fixes landed in Customer Support typing and the storefront import list).
 
 ## Getting Started
 
