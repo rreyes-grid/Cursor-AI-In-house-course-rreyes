@@ -122,7 +122,11 @@ jobs:
           path: ecommerce-api.tar.gz
           retention-days: 60
       - name: Trigger platform deploy hook
-        if: ${{ secrets.BACKEND_DEPLOY_HOOK_URL != '' }}
         env:
           HOOK_URL: ${{ secrets.BACKEND_DEPLOY_HOOK_URL }}
-        run: curl -fsS -X POST "$HOOK_URL"
+        run: |
+          if [ -z "${HOOK_URL:-}" ]; then
+            echo "BACKEND_DEPLOY_HOOK_URL secret not set; skipping deploy hook."
+            exit 0
+          fi
+          curl -fsS -X POST "$HOOK_URL"
