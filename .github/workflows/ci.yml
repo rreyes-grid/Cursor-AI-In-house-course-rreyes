@@ -1,0 +1,128 @@
+name: CI/CD
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-frontend:
+    name: Build (frontend)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: ".nvmrc"
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+
+  build-backend:
+    name: Build (backend)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: ecommerce_api/requirements.txt
+      - name: Install production dependencies
+        working-directory: ecommerce_api
+        run: pip install -r requirements.txt
+      - name: Byte-compile API package
+        working-directory: ecommerce_api
+        run: python -m compileall -q app run.py
+
+  test-frontend:
+    name: Test (frontend)
+    needs: build-frontend
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: ".nvmrc"
+          cache: npm
+      - run: npm ci
+      - run: npm run lint
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:e2e
+
+  test-backend:
+    name: Test (backend)
+    needs: build-backend
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: ecommerce_api/requirements-dev.txt
+      - working-directory: ecommerce_api
+        run: pip install -r requirements-dev.txt
+      - working-directory: ecommerce_api
+        run: pytest tests/ -q --tb=short
+
+  deploy-frontend:
+    name: Deploy (frontend → GitHub Pages)
+    needs: [test-frontend, test-backend]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: ".nvmrc"
+          cache: npm
+      - uses: actions/configure-pages@v5
+      - run: npm ci
+      - name: Build static site (project Pages URL)
+        run: npm run build -- --base=/${{ github.event.repository.name }}/
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+      - id: deploy
+        uses: actions/deploy-pages@v4
+
+  deploy-backend:
+    name: Deploy (backend bundle + optional hook)
+    needs: [test-frontend, test-backend]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Package ecommerce API
+        run: |
+          tar -czf ecommerce-api.tar.gz \
+            --exclude='.venv' \
+            --exclude='__pycache__' \
+            --exclude='.pytest_cache' \
+            --exclude='*.pyc' \
+            -C ecommerce_api .
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ecommerce-api-release
+          path: ecommerce-api.tar.gz
+          retention-days: 60
+      - name: Trigger platform deploy hook
+        if: ${{ secrets.BACKEND_DEPLOY_HOOK_URL != '' }}
+        env:
+          HOOK_URL: ${{ secrets.BACKEND_DEPLOY_HOOK_URL }}
+        run: curl -fsS -X POST "$HOOK_URL"
