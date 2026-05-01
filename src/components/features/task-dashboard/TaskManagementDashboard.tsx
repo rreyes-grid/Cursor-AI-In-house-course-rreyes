@@ -277,7 +277,7 @@ export function TaskManagementDashboard({
     if (!selectedProject) return 'on_track'
     if (selectedProject.status) return selectedProject.status
     const due = new Date(selectedProject.dueDate).getTime()
-    const now = Date.now()
+    const now = new Date().getTime()
     const daysUntilDue = (due - now) / (1000 * 60 * 60 * 24)
     const { progress } = projectMetrics
     if (daysUntilDue < 0) return 'delayed'

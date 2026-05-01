@@ -4,7 +4,6 @@ test.describe('Dashboard — Task Status Workflow', () => {
   test('cycles a task from To Do → In Progress', async ({ dashboard }) => {
     await dashboard.goto()
 
-    const card = dashboard.taskCard('Design new landing page wireframes')
     const statusBtn = dashboard.taskStatusButton('Design new landing page wireframes')
 
     await expect(statusBtn).toContainText('To Do')

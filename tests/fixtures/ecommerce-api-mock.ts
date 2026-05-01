@@ -223,7 +223,7 @@ export function installEcommerceApiMock(page: Page): void {
         await fulfillError(route, 400, 'Validation failed', 'VALIDATION_ERROR')
         return
       }
-      let line = rows.find((r) => r.product_id === product_id)
+      const line = rows.find((r) => r.product_id === product_id)
       const nextQty = (line?.quantity ?? 0) + quantity
       if (nextQty > p.stock_qty) {
         await fulfillError(route, 422, 'Not enough stock available', 'UNPROCESSABLE')

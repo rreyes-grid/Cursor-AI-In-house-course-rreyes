@@ -385,7 +385,7 @@ export function CustomerSupportDemo() {
     }
   }
 
-  const loadAdmin = async () => {
+  const loadAdmin = useCallback(async () => {
     if (!token) return
     setBusy(true)
     try {
@@ -396,11 +396,11 @@ export function CustomerSupportDemo() {
     } finally {
       setBusy(false)
     }
-  }
+  }, [token])
 
   useEffect(() => {
     if (view === 'admin' && token && user?.role === 'admin') loadAdmin()
-  }, [view, token, user?.role])
+  }, [view, token, user?.role, loadAdmin])
 
   const deleteTicket = async () => {
     if (!token || !selectedId || !user || user.role !== 'admin') return
