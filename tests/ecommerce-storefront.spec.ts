@@ -4,6 +4,7 @@ import {
   MOCK_DISPLAY_NAME,
   installEcommerceApiMock,
 } from './fixtures/ecommerce-api-mock'
+import { EcommerceStorefrontPage } from './pages/EcommerceStorefrontPage'
 
 test.describe('Ecommerce storefront (mock API)', () => {
   test.beforeEach(async ({ page }) => {
@@ -22,7 +23,8 @@ test.describe('Ecommerce storefront (mock API)', () => {
   })
 
   test('register → browse catalog → add to cart sees totals update', async ({ page }) => {
-    await page.goto('/demos/ecommerce')
+    const storefront = new EcommerceStorefrontPage(page)
+    await storefront.goto()
 
     await page.getByRole('button', { name: /^Register$/i }).click()
 

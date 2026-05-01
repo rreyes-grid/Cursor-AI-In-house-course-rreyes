@@ -47,6 +47,7 @@ The app will be available at [http://localhost:5173](http://localhost:5173).
 | `npm run lint`       | Run ESLint                                   |
 | `npm run test:e2e`   | Run Playwright end-to-end tests              |
 | `npm run test:e2e:ui`| Open Playwright interactive UI mode          |
+| `npm run qa:run`     | Full local QA pipeline (see `scripts/qa/run-all.sh`; includes optional k6 when enabled) |
 
 ## Running Tests
 
@@ -96,6 +97,82 @@ npx playwright test --headed
 npx playwright test --debug -g "cycles a task from To Do"
 ```
 
+### k6 performance tests
+
+Load and performance checks live in **`k6/scripts/ecommerce-smoke.js`**. They hit **`GET /api/products`** on the **ecommerce API** (not the Vite app).
+
+1. **Install k6** — [Install k6](https://grafana.com/docs/k6/latest/set-up/install-k6/) for your OS (e.g. macOS: `brew install k6`).
+
+2. **Run the API** the script will call — by default **`http://127.0.0.1:5004`**. From the repo root:
+
+   ```bash
+   cd ecommerce_api
+   python3 -m venv .venv && source .venv/bin/activate   # Windows: .venv\Scripts\activate
+   pip install -r requirements.txt
+   cp .env.example .env    # if you have not already
+   flask init-db && flask seed-shop
+   python run.py           # listens on PORT, default 5004
+   ```
+
+   See [ecommerce_api/README.md](ecommerce_api/README.md) for details.
+
+3. **Run k6** — in another terminal, from the repo root:
+
+   ```bash
+   k6 run k6/scripts/ecommerce-smoke.js
+   ```
+
+   **Optional:** point at another base URL (scheme + host + port, no trailing path):
+
+   ```bash
+   K6_TARGET=https://your-api.example.com k6 run k6/scripts/ecommerce-smoke.js
+   ```
+
+   A JSON summary for the QA dashboard can be written with:
+
+   ```bash
+   mkdir -p qa-reports/raw
+   k6 run k6/scripts/ecommerce-smoke.js --summary-export=qa-reports/raw/k6-summary.json
+   ```
+
+   **Heavier load (optional):** the default script stays under the API’s **100 requests/minute** Flask-Limiter cap. To replay the old 5-VU burst (only if you raise or disable that limit), run:
+
+   ```bash
+   K6_AGGRESSIVE=1 k6 run k6/scripts/ecommerce-smoke.js
+   ```
+
+4. **Via the full QA script** — `scripts/qa/run-all.sh` runs k6 only when **`k6` is on your PATH** and **`RUN_K6` is set** (e.g. `export RUN_K6=1`). With the API up and `K6_TARGET` set if needed:
+
+   ```bash
+   export RUN_K6=1
+   npm run qa:run
+   ```
+
+   Thresholds in the script aim for **p(95) < 500 ms** and **HTTP error rate < 1%**; adjust them in **`k6/scripts/ecommerce-smoke.js`** if your environment differs.
+
+#### If k6 reports `thresholds on metrics 'http_req_failed' have been crossed`
+
+- **429 responses:** the API applies a **default rate limit** (`RATELIMIT_DEFAULT`, **100/min**). Sending too many requests per second (many VUs and short sleeps) trips the limit; non-2xx responses count as failures. **Fix:** use the default script pacing (no `K6_AGGRESSIVE`), or temporarily raise the limit in **`ecommerce_api/.env`** (e.g. `RATELIMIT_DEFAULT=1000 per minute`), or disable the limiter for local load tests only (`RATELIMIT_ENABLED=0` — **not** for production).
+- **Connection errors:** ensure the API is running on **`K6_TARGET`** (default **`http://127.0.0.1:5004`**) and that **`flask init-db`** / **`flask seed-shop`** have been run so **`GET /api/products`** returns **200**.
+
+### OWASP ZAP baseline scan (optional)
+
+Requires **Docker** and a running target (often the ecommerce API).
+
+```bash
+# API on host machine, default port — script rewrites loopback for the ZAP container
+export ZAP_TARGET=http://127.0.0.1:5004
+bash scripts/qa/zap-baseline.sh
+```
+
+Reports: **`qa-reports/zap/`** (`zap-report.json`, `zap-report.xml`). With the full QA script: **`RUN_ZAP=1`** plus **`ZAP_TARGET`** before **`npm run qa:run`**.
+
+#### Spider / connection refused with `127.0.0.1`
+
+Inside Docker, **`127.0.0.1` is the ZAP container**, not your laptop, so the spider cannot reach a server you started on the host. **`scripts/qa/zap-baseline.sh`** rewrites **`127.0.0.1`** / **`localhost`** to **`host.docker.internal`** and runs Docker with **`--add-host=host.docker.internal:host-gateway`** so the container can reach the host (Docker Desktop macOS/Windows; most Linux Docker installs too).
+
+Still failing? Confirm **`python run.py`** (or your server) listens on **`0.0.0.0:5004`**, not only **`127.0.0.1`**, so the forwarded host port accepts connections.
+
 ## Project Structure
 
 ```
@@ -114,8 +191,10 @@ src/
 ├── App.tsx            # Root application component
 ├── main.tsx           # Entry point
 └── index.css          # Tailwind CSS import
+k6/scripts/               # k6 performance script (ecommerce API /api/products smoke)
 tests/
-├── fixtures/          # Page Object Models and test helpers
+├── fixtures/          # Playwright fixtures (page-object wiring)
+├── pages/             # Playwright Page Object Models
 ├── dashboard-rendering.spec.ts     # Navigation & rendering tests
 ├── task-workflow.spec.ts           # Task status lifecycle tests
 ├── dashboard-accessibility.spec.ts # Accessibility & keyboard tests
@@ -137,3 +216,5 @@ To point the Vite app at that API when you wire up requests, copy [`.env.example
 - **Tailwind CSS 4** — Utility-first CSS framework
 - **ESLint** — Linting
 - **Playwright** — End-to-end testing
+- **k6** — Load / performance tests against HTTP APIs (optional; see **Running Tests → k6**)
+- **OWASP ZAP** — Docker baseline scans (optional; see **Running Tests → OWASP ZAP**)

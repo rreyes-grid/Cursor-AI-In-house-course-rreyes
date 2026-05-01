@@ -1,0 +1,111 @@
+name: QA automation
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - "src/**"
+      - "tests/**"
+      - "ecommerce_api/**"
+      - "scripts/qa/**"
+      - "k6/**"
+      - "package*.json"
+      - "vitest.config.ts"
+
+permissions:
+  contents: read
+
+jobs:
+  qa-frontend:
+    name: Frontend (Vitest + ESLint + npm audit + Snyk)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci --prefer-offline
+      - run: mkdir -p qa-reports/raw
+      - run: npm run qa:test:unit
+      - run: npm run qa:lint:ts
+      - name: ESLint complexity (lib/ui JSON)
+        run: npx eslint "src/lib" "src/components/ui" --format json --output-file qa-reports/raw/eslint-lib-ui.json || true
+      - run: npm audit --audit-level=high
+      - name: Snyk
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+        run: |
+          if [ -z "${SNYK_TOKEN:-}" ]; then
+            echo '{"vulnerabilities":[]}' > qa-reports/raw/snyk.json
+            exit 0
+          fi
+          npx -y snyk@latest test --severity-threshold=high --json-file-output=qa-reports/raw/snyk.json || true
+      - uses: actions/upload-artifact@v4
+        with:
+          name: qa-reports-frontend
+          path: qa-reports/
+
+  qa-backend:
+    name: Backend (pytest + pylint + radon + pip-audit)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ecommerce_api
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: |
+            ecommerce_api/requirements.txt
+            ecommerce_api/requirements-dev.txt
+      - run: pip install -r requirements-dev.txt
+      - run: mkdir -p ../qa-reports/raw ../qa-reports/coverage
+      - run: pylint app run.py --output-format=json > ../qa-reports/raw/pylint.json || true
+      - run: radon cc app -a > ../qa-reports/raw/radon.txt || true
+      - run: |
+          pytest tests/ -q --tb=short \
+            --cov=app \
+            --cov-report=term-missing \
+            --cov-report=json:../qa-reports/coverage/backend-coverage.json
+      - run: pip-audit -r requirements.txt -f json > ../qa-reports/raw/pip-audit.json || true
+      - uses: actions/upload-artifact@v4
+        with:
+          name: qa-reports-backend
+          path: qa-reports/
+
+  qa-metrics:
+    name: Metrics + dashboard
+    needs: [qa-frontend, qa-backend]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci --prefer-offline
+      - uses: actions/download-artifact@v4
+        with:
+          name: qa-reports-frontend
+          path: qa-tmp/fe
+      - uses: actions/download-artifact@v4
+        with:
+          name: qa-reports-backend
+          path: qa-tmp/be
+      - name: Merge report trees
+        run: |
+          mkdir -p qa-reports/raw
+          shopt -s dotglob nullglob
+          [[ -d qa-tmp/fe ]] && cp -R qa-tmp/fe/* qa-reports/ || true
+          [[ -d qa-tmp/be ]] && cp -R qa-tmp/be/* qa-reports/ || true
+          echo '{}' > qa-reports/raw/k6-summary.json
+      - run: node scripts/qa/build-metrics.mjs
+      - uses: actions/upload-artifact@v4
+        with:
+          name: qa-dashboard
+          path: |
+            qa-reports/metrics.json
+            qa-reports/dashboard/index.html

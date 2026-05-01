@@ -6,7 +6,7 @@ import tseslint from 'typescript-eslint'
 import { defineConfig, globalIgnores } from 'eslint/config'
 
 export default defineConfig([
-  globalIgnores(['**/dist/**', '**/node_modules/**', '**/.venv/**']),
+  globalIgnores(['**/dist/**', '**/node_modules/**', '**/.venv/**', 'qa-reports/**']),
   {
     files: ['**/*.{ts,tsx}'],
     extends: [
@@ -39,6 +39,18 @@ export default defineConfig([
     files: ['src/context/**/*.{ts,tsx}'],
     rules: {
       'react-refresh/only-export-components': 'off',
+    },
+  },
+  {
+    files: ['src/lib/**/*.{ts,tsx}', 'src/components/ui/**/*.{tsx}'],
+    rules: {
+      complexity: ['error', { max: 10 }],
+    },
+  },
+  {
+    files: ['src/**/*.test.{ts,tsx}', 'tests/pages/**/*.ts'],
+    rules: {
+      complexity: 'off',
     },
   },
 ])

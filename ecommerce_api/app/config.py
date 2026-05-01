@@ -17,7 +17,12 @@ class Config:
     ).split(",")
     BCRYPT_ROUNDS = int(os.environ.get("BCRYPT_ROUNDS", "12"))
     RATELIMIT_STORAGE_URI = os.environ.get("RATELIMIT_STORAGE_URI", "memory://")
-    RATELIMIT_DEFAULT = "100 per minute"
+    RATELIMIT_DEFAULT = os.environ.get("RATELIMIT_DEFAULT", "100 per minute")
+    RATELIMIT_ENABLED = os.environ.get("RATELIMIT_ENABLED", "1").lower() in (
+        "1",
+        "true",
+        "yes",
+    )
     MOCK_PAYMENT_ENABLED = os.environ.get("MOCK_PAYMENT_ENABLED", "1") == "1"
     MAIL_SERVER = os.environ.get("MAIL_SERVER")
     MAIL_PORT = int(os.environ.get("MAIL_PORT", "587"))
