@@ -1,0 +1,12 @@
+**/node_modules
+**/dist
+**/.venv
+**/site-packages
+**/__pycache__
+**/.pytest_cache
+**/*.pyc
+.git
+.github
+playwright-report
+test-results
+*.log
