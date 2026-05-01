@@ -75,9 +75,29 @@ jobs:
         run: pytest tests/ -q --tb=short
 
   deploy-frontend:
-    name: Deploy (frontend → GitHub Pages)
+    name: Deploy (frontend dist artifact)
     needs: [test-frontend, test-backend]
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: ".nvmrc"
+          cache: npm
+      - run: npm ci
+      - name: Build static site (GitHub Pages base path)
+        run: npm run build -- --base=/${{ github.event.repository.name }}/
+      - uses: actions/upload-artifact@v4
+        with:
+          name: frontend-dist
+          path: dist
+          retention-days: 60
+
+  publish-github-pages:
+    name: Publish (frontend → GitHub Pages)
+    needs: [deploy-frontend]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && vars.PUBLISH_GITHUB_PAGES == 'true'
     runs-on: ubuntu-latest
     permissions:
       pages: write
@@ -86,15 +106,11 @@ jobs:
       name: github-pages
       url: ${{ steps.deploy.outputs.page_url }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/download-artifact@v4
         with:
-          node-version-file: ".nvmrc"
-          cache: npm
+          name: frontend-dist
+          path: dist
       - uses: actions/configure-pages@v5
-      - run: npm ci
-      - name: Build static site (project Pages URL)
-        run: npm run build -- --base=/${{ github.event.repository.name }}/
       - uses: actions/upload-pages-artifact@v3
         with:
           path: dist
