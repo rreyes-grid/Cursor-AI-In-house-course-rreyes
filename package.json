@@ -17,6 +17,8 @@
     "qa:test:unit": "vitest run --coverage",
     "qa:lint:ts": "eslint .",
     "qa:metrics": "node scripts/qa/build-metrics.mjs",
+    "qa:snyk": "npx -y snyk@latest test --severity-threshold=high",
+    "qa:snyk:report": "mkdir -p qa-reports/raw && npx -y snyk@latest test --severity-threshold=high --json-file-output=qa-reports/raw/snyk.json",
     "qa:run": "bash scripts/qa/run-all.sh"
   },
   "dependencies": {

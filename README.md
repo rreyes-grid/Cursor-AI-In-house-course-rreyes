@@ -47,7 +47,9 @@ The app will be available at [http://localhost:5173](http://localhost:5173).
 | `npm run lint`       | Run ESLint                                   |
 | `npm run test:e2e`   | Run Playwright end-to-end tests              |
 | `npm run test:e2e:ui`| Open Playwright interactive UI mode          |
-| `npm run qa:run`     | Full local QA pipeline (see `scripts/qa/run-all.sh`; includes optional k6 when enabled) |
+| `npm run qa:run`     | Full local QA pipeline (see `scripts/qa/run-all.sh`; includes optional k6 / ZAP when enabled) |
+| `npm run qa:snyk`    | Snyk **`test`** against this repo’s npm lockfile (**requires authentication** — see below) |
+| `npm run qa:snyk:report` | Same scan, writes **`qa-reports/raw/snyk.json`** (for QA dashboard metrics) |
 
 ## Running Tests
 
@@ -135,6 +137,8 @@ Load and performance checks live in **`k6/scripts/ecommerce-smoke.js`**. They hi
    k6 run k6/scripts/ecommerce-smoke.js --summary-export=qa-reports/raw/k6-summary.json
    ```
 
+   **`k6P95Ms` / `k6ErrorRatePct` are `null` in `qa-reports/metrics.json`?** You need a real k6 run that wrote **`qa-reports/raw/k6-summary.json`** (not the empty **`{}`** stub from **`qa:run`** when **`RUN_K6`** is unset). Re-run k6 with **`--summary-export`** as above, then **`npm run qa:metrics`**.
+
    **Heavier load (optional):** the default script stays under the API’s **100 requests/minute** Flask-Limiter cap. To replay the old 5-VU burst (only if you raise or disable that limit), run:
 
    ```bash
@@ -172,6 +176,78 @@ Reports: **`qa-reports/zap/`** (`zap-report.json`, `zap-report.xml`). With the f
 Inside Docker, **`127.0.0.1` is the ZAP container**, not your laptop, so the spider cannot reach a server you started on the host. **`scripts/qa/zap-baseline.sh`** rewrites **`127.0.0.1`** / **`localhost`** to **`host.docker.internal`** and runs Docker with **`--add-host=host.docker.internal:host-gateway`** so the container can reach the host (Docker Desktop macOS/Windows; most Linux Docker installs too).
 
 Still failing? Confirm **`python run.py`** (or your server) listens on **`0.0.0.0:5004`**, not only **`127.0.0.1`**, so the forwarded host port accepts connections.
+
+#### ZAP “high” count on the QA dashboard
+
+ZAP **`riskdesc`** values look like **`Low (High)`** — that is **Low risk** with **High confidence**, not a High-severity finding. The metrics script counts only alerts whose numeric **`riskcode`** is **3** or above (ZAP’s High tier). If an older report was mis-counted by matching the word “high” in **`riskdesc`**, re-run **`node scripts/qa/build-metrics.mjs`** after updating the repo.
+
+### Snyk dependency scanning (optional)
+
+[Snyk](https://snyk.io/) checks **npm dependencies** for known vulnerabilities. This repo uses the CLI (`snyk test`) aligned with **`--severity-threshold=high`** in CI (**`.github/workflows/ci.yml`** and **`qa.yml`**).
+
+#### 1. Get an API token or log in locally
+
+Choose one approach:
+
+1. **Token (good for CI and scripts)** — Sign up or sign in at [Snyk](https://app.snyk.io/), open **account / settings**, create or reveal an **Organization** or personal **service token**, and copy it.  
+   Locally:
+
+   ```bash
+   export SNYK_TOKEN="<your-token>"
+   ```
+
+2. **Browser login (local dev)** — Once per machine:
+
+   ```bash
+   npx snyk auth
+   ```
+
+   Opens a browser flow; afterwards the CLI stores credentials (you usually **do not** need **`SNYK_TOKEN`** in that environment unless you choose to).
+
+Treat the token like a password. **Do not** commit it—use **`export SNYK_TOKEN=...`** in your shell only, or **[GitHub Actions encrypted secrets](https://docs.github.com/en/actions/security-guides/using-secrets-in-github-actions)** named **`SNYK_TOKEN`** so workflows can run **`snyk test`**.
+
+#### 2. Install dependencies
+
+Snyk reads **`package-lock.json`**; dependency tree must exist:
+
+```bash
+npm ci
+```
+
+(or **`npm install`** if you prefer.)
+
+#### 3. Run Snyk
+
+From the repo root:
+
+```bash
+npm run qa:snyk
+```
+
+Writes human-readable findings to the terminal and exits non-zero if **high** (or worse) vulnerabilities are reported (matching CI behavior).
+
+Machine-readable JSON for the QA metrics pipeline (**`npm run qa:metrics`**):
+
+```bash
+npm run qa:snyk:report
+```
+
+Writes **`qa-reports/raw/snyk.json`** ( **`qa-reports/`** may be ignored by Git—create it locally as needed.)
+
+#### Via the full QA script
+
+After **`npm install`** / **`npm ci`**, with **`SNYK_TOKEN`** exported:
+
+```bash
+export SNYK_TOKEN="<your-token>"
+npm run qa:run
+```
+
+If **`SNYK_TOKEN`** is unset, **`scripts/qa/run-all.sh`** skips a real scan and stubs an empty **`snyk.json`** so the rest of QA can finish.
+
+#### More help
+
+[snyk test CLI reference](https://docs.snyk.io/snyk-cli/commands/test): flags such as **`--all-projects`** (monorepo) or different severity cutoffs — keep them consistent with **`security-node`** in CI when possible.
 
 ## Project Structure
 
@@ -218,3 +294,4 @@ To point the Vite app at that API when you wire up requests, copy [`.env.example
 - **Playwright** — End-to-end testing
 - **k6** — Load / performance tests against HTTP APIs (optional; see **Running Tests → k6**)
 - **OWASP ZAP** — Docker baseline scans (optional; see **Running Tests → OWASP ZAP**)
+- **Snyk** — Dependency vulnerability scans (optional; see **Running Tests → Snyk**)

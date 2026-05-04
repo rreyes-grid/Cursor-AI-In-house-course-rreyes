@@ -76,8 +76,10 @@ function zapHighCount() {
   const alerts = j.site?.[0]?.alerts || j.alerts || []
   let high = 0
   for (const a of alerts) {
-    const risk = (a.riskdesc || a.risk || '').toLowerCase()
-    if (risk.includes('high')) high++
+    // riskdesc looks like "Low (High)" = low *risk* + high *confidence* — never match on the string "high".
+    // ZAP JSON uses riskcode strings: "0" info … "3" high (see zap-report.json docs).
+    const code = Number(a.riskcode)
+    if (!Number.isNaN(code) && code >= 3) high++
   }
   return high
 }
@@ -85,10 +87,26 @@ function zapHighCount() {
 function k6Metrics() {
   const j = readJson(join(RAW, 'k6-summary.json'))
   if (!j?.metrics) return { p95Ms: null, errorRatePct: null }
-  const d = j.metrics.http_req_duration?.values?.['p(95)']
-  const p95Ms = d != null ? Number(d) : null
-  const failed = j.metrics.http_req_failed?.values?.rate
-  const errorRatePct = failed != null ? Number(failed) * 100 : null
+
+  const dur = j.metrics.http_req_duration
+  // k6 --summary-export: percentiles live on the metric object (not under .values)
+  const p95Raw = dur?.['p(95)'] ?? dur?.values?.['p(95)']
+  const p95Ms = p95Raw != null ? Number(p95Raw) : null
+
+  const failM = j.metrics.http_req_failed
+  let errorRatePct = null
+  if (failM?.values?.rate != null) {
+    errorRatePct = Number(failM.values.rate) * 100
+  } else if (
+    typeof failM?.value === 'number' &&
+    failM.value >= 0 &&
+    failM.value <= 1
+  ) {
+    errorRatePct = failM.value * 100
+  } else if (failM?.rate != null) {
+    errorRatePct = Number(failM.rate) * 100
+  }
+
   return { p95Ms, errorRatePct }
 }
 
